@@ -1,5 +1,45 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { generateProblem, Operation, Problem } from './utils/mathLogic';
+import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+// Utility for clean tailwind classes
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+// Interactive Background Component
+function BackgroundBlob() {
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  // Smooth spring animation for the blob
+  const springX = useSpring(mouseX, { stiffness: 50, damping: 20 });
+  const springY = useSpring(mouseY, { stiffness: 50, damping: 20 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      mouseX.set(e.clientX);
+      mouseY.set(e.clientY);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [mouseX, mouseY]);
+
+  return (
+    <motion.div
+      className="fixed top-0 left-0 w-96 h-96 bg-gradient-to-r from-violet-300 to-pink-300 rounded-full blur-3xl opacity-40 pointer-events-none -z-10"
+      style={{
+        x: springX,
+        y: springY,
+        translateX: '-50%',
+        translateY: '-50%',
+      }}
+    />
+  );
+}
 
 function App() {
   const [operation, setOperation] = useState<Operation>('add');
@@ -10,10 +50,11 @@ function App() {
   const [highScore, setHighScore] = useState<number>(0);
   const [history, setHistory] = useState<Array<{ question: string, userAnswer: string, correct: boolean, timestamp: number }>>([]);
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
+  const [shake, setShake] = useState(0); // Key to trigger shake animation
 
   // Settings
   const [minRange, setMinRange] = useState<number>(1);
-  const [maxRange, setMaxRange] = useState<number>(10);
+  const [maxRange, setMaxRange] = useState<number>(20); // Default bumped to 20 for fun
   const [showSettings, setShowSettings] = useState<boolean>(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -74,23 +115,16 @@ function App() {
       correct: isCorrect,
       timestamp: Date.now(),
     };
-    setHistory(prev => [newHistoryItem, ...prev].slice(0, 10));
+    setHistory(prev => [newHistoryItem, ...prev].slice(0, 5)); // Keep last 5 for UI cleanliness
 
     if (isCorrect) {
       setFeedback('correct');
       setScore(s => s + 1);
       setStreak(s => {
         const newStreak = s + 1;
-        setHighScore(prevHigh => Math.max(prevHigh, score + 1)); // Use total score for high score? Or streak? Request said "High Score", ambiguous. Usually high score refers to 'Score'. Let's track Score as high score.
-        // Wait, "High Score: Track the user's highest score in a session". 
-        // If score resets on wrong answer, tehn it's a current-run score. 
-        // But original app decremented score. 
-        // Request: "Display the current streak next to the score". 
-        // Request: "High Score: Track the user's highest score". 
-        // I will interpret High Score as the maximum value `score` has reached.
+        setHighScore(prevHigh => Math.max(prevHigh, score + 1));
         return newStreak;
       });
-      // Logic for High Score tracking based on 'score' state
       if (score + 1 > highScore) {
         setHighScore(score + 1);
       }
@@ -100,6 +134,7 @@ function App() {
       }, 1000);
     } else {
       setFeedback('incorrect');
+      setShake(prev => prev + 1); // Trigger shake
       setScore(s => Math.max(0, s - 1));
       setStreak(0);
       setTimeout(() => {
@@ -121,94 +156,197 @@ function App() {
     getNewProblem();
   };
 
+  // --- Animation Variants ---
+  const containerVariants = {
+    hidden: { opacity: 0, scale: 0.9 },
+    visible: { opacity: 1, scale: 1, transition: { type: 'spring' as const, duration: 0.5 } }
+  };
+
+  const buttonTap = { scale: 0.9, transition: { type: "spring" as const, stiffness: 400, damping: 10 } };
+
   return (
-    <div className={`app-container ${feedback}`}>
-      <header>
-        <div className="header-top">
-          <h1 className="logo">Flipp</h1>
-          <button className="settings-btn" onClick={() => setShowSettings(!showSettings)}>⚙️</button>
-        </div>
-        <div className="stats-bar">
-          <div className="stat">Score: {score}</div>
-          <div className="stat">🔥 Streak: {streak}</div>
-          <div className="stat">🏆 Best: {highScore}</div>
-        </div>
-      </header>
+    <div className="min-h-screen flex items-center justify-center p-4 selection:bg-pink-200 overflow-hidden relative">
+      <BackgroundBlob />
 
-      {showSettings && (
-        <div className="settings-panel">
-          <h3>Game Settings</h3>
-          <div className="setting-row">
-            <label>Min Number:</label>
-            <input type="number" value={minRange} onChange={e => setMinRange(Number(e.target.value))} />
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl border-4 border-violet-100 overflow-hidden relative"
+      >
+        {/* Header */}
+        <div className="bg-violet-500 p-6 text-white rounded-b-[2.5rem] shadow-lg relative z-10">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-4xl font-black tracking-tight" style={{ textShadow: '2px 2px 0px rgba(0,0,0,0.1)' }}>Flipp</h1>
+            <motion.button
+              whileTap={buttonTap}
+              onClick={() => setShowSettings(!showSettings)}
+              className="bg-white/20 p-2 rounded-full hover:bg-white/30 transition-colors"
+            >
+              <span className="text-xl">⚙️</span>
+            </motion.button>
           </div>
-          <div className="setting-row">
-            <label>Max Number:</label>
-            <input type="number" value={maxRange} onChange={e => setMaxRange(Number(e.target.value))} />
+
+          <div className="grid grid-cols-3 gap-3">
+            <StatBox label="Score" value={score} />
+            <StatBox label="Streak" value={streak} isStreak />
+            <StatBox label="Best" value={highScore} />
           </div>
-          <button className="close-settings" onClick={applySettings}>Done</button>
-        </div>
-      )}
-
-      <div className="operations">
-        {(['add', 'sub', 'mul', 'div'] as Operation[]).map(op => (
-          <button
-            key={op}
-            className={`op-btn ${operation === op ? 'active' : ''}`}
-            onClick={() => handleOperationChange(op)}
-          >
-            {op === 'add' ? '+' : op === 'sub' ? '−' : op === 'mul' ? '×' : '÷'}
-          </button>
-        ))}
-      </div>
-
-      <main className="game-area">
-        <div className="problem-display">
-          {problem ? problem.question : '...'}
         </div>
 
-        <div className="input-area">
-          <input
-            ref={inputRef}
-            type="number"
-            value={userAnswer}
-            onChange={(e) => setUserAnswer(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="?"
-            disabled={feedback === 'correct'}
-          />
-          <button
-            className="check-btn"
+        {/* Game Area */}
+        <div className="p-8 flex flex-col items-center space-y-8">
+
+          {/* Operations */}
+          <div className="flex space-x-3 bg-violet-50 p-2 rounded-2xl">
+            {(['add', 'sub', 'mul', 'div'] as Operation[]).map(op => (
+              <motion.button
+                key={op}
+                whileTap={buttonTap}
+                onClick={() => handleOperationChange(op)}
+                className={cn(
+                  "w-12 h-12 rounded-xl text-2xl font-bold flex items-center justify-center transition-all shadow-sm",
+                  operation === op
+                    ? "bg-violet-500 text-white shadow-violet-200 shadow-md transform scale-105"
+                    : "bg-white text-violet-300 hover:bg-violet-100"
+                )}
+              >
+                {op === 'add' ? '+' : op === 'sub' ? '−' : op === 'mul' ? '×' : '÷'}
+              </motion.button>
+            ))}
+          </div>
+
+          {/* Problem */}
+          <div className="text-center">
+            <motion.div
+              key={problem?.question} // Re-animate on new problem
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring' as const, stiffness: 300 }}
+              className="text-6xl font-black text-slate-700 mb-2"
+            >
+              {problem ? problem.question : '...'}
+            </motion.div>
+          </div>
+
+          {/* Input & Check */}
+          <div className="w-full relative">
+            <motion.div
+              animate={shake ? { x: [0, -10, 10, -10, 10, 0] } : {}}
+              transition={{ duration: 0.4 }}
+            >
+              <input
+                ref={inputRef}
+                type="number"
+                value={userAnswer}
+                onChange={(e) => setUserAnswer(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="?"
+                disabled={feedback === 'correct'}
+                className={cn(
+                  "w-full h-20 text-center text-4xl font-bold rounded-2xl border-4 bg-slate-50 focus:outline-none focus:ring-4 transition-all placeholder:text-slate-300",
+                  feedback === 'correct' ? "border-emerald-400 bg-emerald-50 text-emerald-600" :
+                    feedback === 'incorrect' ? "border-pink-400 bg-pink-50 text-pink-600" :
+                      "border-slate-200 focus:border-violet-400 focus:ring-violet-100"
+                )}
+              />
+            </motion.div>
+
+            <AnimatePresence>
+              {feedback === 'correct' && (
+                <motion.div
+                  initial={{ scale: 0, rotate: -10 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  exit={{ scale: 0 }}
+                  className="absolute -top-6 -right-4 bg-emerald-400 text-white px-4 py-1 rounded-full font-bold shadow-lg text-sm transform rotate-12"
+                >
+                  Awesome!
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <motion.button
+            whileTap={buttonTap}
+            whileHover={{ scale: 1.02 }}
             onClick={handleCheck}
             disabled={feedback !== null}
+            className={cn(
+              "w-full py-4 rounded-2xl text-xl font-black text-white shadow-[0_4px_0_0_rgba(0,0,0,0.1)] transition-all active:shadow-none active:translate-y-1",
+              feedback === null ? "bg-violet-500 hover:bg-violet-600 shadow-violet-700" : "bg-slate-300 shadow-slate-400 cursor-not-allowed"
+            )}
           >
-            Check
-          </button>
+            check!
+          </motion.button>
+
         </div>
 
-        {feedback && (
-          <div className={`feedback-message ${feedback}`}>
-            {feedback === 'correct' ? 'Correct!' : 'Try Again'}
-          </div>
-        )}
-      </main>
+        {/* Settings Modal */}
+        <AnimatePresence>
+          {showSettings && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-violet-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+            >
+              <motion.div
+                initial={{ scale: 0.8, y: 50 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.8, y: 50 }}
+                className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl"
+              >
+                <h3 className="text-2xl font-bold text-violet-900 mb-6 text-center">Settings</h3>
 
-      {history.length > 0 && (
-        <div className="history-section">
-          <h3>History</h3>
-          <ul className="history-list">
-            {history.map((item, idx) => (
-              <li key={idx} className={`history-item ${item.correct ? 'correct' : 'incorrect'}`}>
-                <span className="h-q">{item.question}</span>
-                <span className="h-a">= {item.userAnswer}</span>
-                <span className="h-icon">{item.correct ? '✅' : '❌'}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+                <div className="space-y-4 mb-8">
+                  <SettingInput label="Min Number" value={minRange} onChange={setMinRange} />
+                  <SettingInput label="Max Number" value={maxRange} onChange={setMaxRange} />
+                </div>
+
+                <motion.button
+                  whileTap={buttonTap}
+                  onClick={applySettings}
+                  className="w-full bg-violet-500 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-violet-600"
+                >
+                  Done
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
+      {/* Floating History (Desktop Only suggestion, or simple list below) */}
+      {/* Kept simple for now to focus on main card, but could be added if requested */}
     </div>
   );
 }
+
+// Subcomponents for cleaner code
+const StatBox = ({ label, value, isStreak }: { label: string, value: number, isStreak?: boolean }) => (
+  <div className="bg-white/20 rounded-2xl p-2 text-center backdrop-blur-sm">
+    <div className="text-xs font-bold text-violet-100 uppercase tracking-wider mb-1">{label}</div>
+    <motion.div
+      key={value} // Re-animate on change
+      initial={{ scale: 1.5, color: isStreak ? '#fcd34d' : '#fff' }}
+      animate={{ scale: 1, color: '#fff' }}
+      className="text-2xl font-black"
+    >
+      {value}
+    </motion.div>
+  </div>
+);
+
+const SettingInput = ({ label, value, onChange }: { label: string, value: number, onChange: (n: number) => void }) => (
+  <div className="bg-slate-50 p-4 rounded-xl flex justify-between items-center">
+    <label className="font-bold text-slate-600">{label}</label>
+    <input
+      type="number"
+      value={value}
+      onChange={e => onChange(parseInt(e.target.value) || 0)}
+      className="w-20 text-center font-bold text-lg bg-white border-2 border-slate-200 rounded-lg py-1 focus:border-violet-400 outline-none text-violet-600"
+    />
+  </div>
+);
 
 export default App;
