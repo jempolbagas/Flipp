@@ -152,17 +152,196 @@ input:focus {
 }
 
 /* Animations / States */
-.app-container.correct {
-  /* Subtle green flash? Maybe too messy. Keeping it clean. */
-}
+/* .app-container.correct {
+  /* Subtle green flash logic could go here */
+/* } */
 
 .app-container.incorrect {
-  animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+  animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
 }
 
 @keyframes shake {
-  10%, 90% { transform: translate3d(-1px, 0, 0); }
-  20%, 80% { transform: translate3d(2px, 0, 0); }
-  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-  40%, 60% { transform: translate3d(4px, 0, 0); }
+
+  10%,
+  90% {
+    transform: translate3d(-1px, 0, 0);
+  }
+
+  20%,
+  80% {
+    transform: translate3d(2px, 0, 0);
+  }
+
+  30%,
+  50%,
+  70% {
+    transform: translate3d(-4px, 0, 0);
+  }
+
+  40%,
+  60% {
+    transform: translate3d(4px, 0, 0);
+  }
+}
+
+/* =========================================
+   New Styles for Gamification & Settings
+   ========================================= */
+
+/* Header Adjustments */
+header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1.5rem;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.settings-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.settings-btn:hover {
+  background-color: var(--gray-light);
+}
+
+.stats-bar {
+  display: flex;
+  justify-content: space-around;
+  background-color: var(--gray-light);
+  padding: 0.8rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.stat {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Settings Panel */
+.settings-panel {
+  background-color: white;
+  border: 1px solid var(--gray-medium);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.settings-panel h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.setting-row label {
+  font-weight: 500;
+  color: #666;
+}
+
+.setting-row input {
+  width: 80px;
+  padding: 0.5rem;
+  font-size: 1rem;
+}
+
+.close-settings {
+  background-color: var(--text-color);
+  color: white;
+  border: none;
+  padding: 0.5rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+/* History Section */
+.history-section {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--gray-medium);
+  text-align: left;
+}
+
+.history-section h3 {
+  font-size: 1rem;
+  color: #888;
+  margin-bottom: 1rem;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.history-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  background-color: var(--gray-light);
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 1rem;
+}
+
+.history-item.correct {
+  border-left: 4px solid var(--success-color);
+}
+
+.history-item.incorrect {
+  border-left: 4px solid var(--error-color);
+}
+
+.h-q {
+  flex: 1;
+}
+
+.h-a {
+  font-weight: 700;
+  color: #333;
+}
+
+.h-icon {
+  margin-left: 1rem;
 }

@@ -5,17 +5,17 @@ export interface Problem {
   answer: number;
 }
 
-export const generateProblem = (operation: Operation): Problem => {
+export const generateProblem = (operation: Operation, min: number = -15, max: number = 15): Problem => {
   let a: number, b: number, question: string = '', answer: number = 0;
 
   const getRandomInt = (min: number, max: number): number => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   };
 
-  // Generate numbers between -15 and 15
+  // Generate numbers based on input range
   // For division, we might need adjustments to ensure integers
-  a = getRandomInt(-15, 15);
-  b = getRandomInt(-15, 15);
+  a = getRandomInt(min, max);
+  b = getRandomInt(min, max);
 
   switch (operation) {
     case 'add':
