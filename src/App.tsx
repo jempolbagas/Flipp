@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { generateProblem } from './utils/mathLogic';
+import { generateProblem, Operation, Problem } from './utils/mathLogic';
 
 function App() {
-  const [operation, setOperation] = useState('add');
-  const [problem, setProblem] = useState(null);
-  const [userAnswer, setUserAnswer] = useState('');
-  const [score, setScore] = useState(0);
-  const [feedback, setFeedback] = useState(null); // 'correct', 'incorrect', or null
-  const inputRef = useRef(null);
+  const [operation, setOperation] = useState<Operation>('add');
+  const [problem, setProblem] = useState<Problem | null>(null);
+  const [userAnswer, setUserAnswer] = useState<string>('');
+  const [score, setScore] = useState<number>(0);
+  const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null); // 'correct', 'incorrect', or null
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const getNewProblem = (op) => {
+  const getNewProblem = (op?: Operation) => {
     const newProblem = generateProblem(op || operation);
     setProblem(newProblem);
     setUserAnswer('');
@@ -21,7 +21,7 @@ function App() {
     getNewProblem();
   }, []);
 
-  const handleOperationChange = (op) => {
+  const handleOperationChange = (op: Operation) => {
     setOperation(op);
     getNewProblem(op);
   };
@@ -50,7 +50,7 @@ function App() {
     }
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleCheck();
     }
@@ -64,7 +64,7 @@ function App() {
       </header>
 
       <div className="operations">
-        {['add', 'sub', 'mul', 'div'].map(op => (
+        {(['add', 'sub', 'mul', 'div'] as Operation[]).map(op => (
           <button
             key={op}
             className={`op-btn ${operation === op ? 'active' : ''}`}

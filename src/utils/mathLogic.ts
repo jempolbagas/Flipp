@@ -1,7 +1,14 @@
-export const generateProblem = (operation) => {
-  let a, b, question, answer;
+export type Operation = 'add' | 'sub' | 'mul' | 'div';
 
-  const getRandomInt = (min, max) => {
+export interface Problem {
+  question: string;
+  answer: number;
+}
+
+export const generateProblem = (operation: Operation): Problem => {
+  let a: number, b: number, question: string = '', answer: number = 0;
+
+  const getRandomInt = (min: number, max: number): number => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   };
 
@@ -29,8 +36,8 @@ export const generateProblem = (operation) => {
       // So we generate a and b, then calculate c = a * b.
       // Question becomes: c ÷ a = ?
       // Avoid division by zero for 'a'
-      if (a === 0) a = 1; 
-      
+      if (a === 0) a = 1;
+
       const dividend = a * b;
       question = `${dividend} ÷ ${a}`;
       answer = b;
