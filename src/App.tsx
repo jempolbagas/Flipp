@@ -56,6 +56,7 @@ function App() {
   const [minRange, setMinRange] = useState<number>(1);
   const [maxRange, setMaxRange] = useState<number>(20); // Default bumped to 20 for fun
   const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [showHistory, setShowHistory] = useState<boolean>(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -115,7 +116,7 @@ function App() {
       correct: isCorrect,
       timestamp: Date.now(),
     };
-    setHistory(prev => [newHistoryItem, ...prev].slice(0, 5)); // Keep last 5 for UI cleanliness
+    setHistory(prev => [newHistoryItem, ...prev].slice(0, 10)); // Keep last 10
 
     if (isCorrect) {
       setFeedback('correct');
@@ -178,13 +179,24 @@ function App() {
         <div className="bg-violet-500 p-6 text-white rounded-b-[2.5rem] shadow-lg relative z-10">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-4xl font-black tracking-tight" style={{ textShadow: '2px 2px 0px rgba(0,0,0,0.1)' }}>Flipp</h1>
-            <motion.button
-              whileTap={buttonTap}
-              onClick={() => setShowSettings(!showSettings)}
-              className="bg-white/20 p-2 rounded-full hover:bg-white/30 transition-colors"
-            >
-              <span className="text-xl">⚙️</span>
-            </motion.button>
+            <div className="flex gap-2">
+              <motion.button
+                whileTap={buttonTap}
+                onClick={() => setShowHistory(!showHistory)}
+                className="bg-white/20 p-2 rounded-full hover:bg-white/30 transition-colors"
+                title="History"
+              >
+                <span className="text-xl">📜</span>
+              </motion.button>
+              <motion.button
+                whileTap={buttonTap}
+                onClick={() => setShowSettings(!showSettings)}
+                className="bg-white/20 p-2 rounded-full hover:bg-white/30 transition-colors"
+                title="Settings"
+              >
+                <span className="text-xl">⚙️</span>
+              </motion.button>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -281,19 +293,21 @@ function App() {
 
         </div>
 
-        {/* Settings Modal */}
+        {/* Global Modal Overlay to handle stacking if needed, though simple checks work */}
         <AnimatePresence>
           {showSettings && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              onClick={() => setShowSettings(false)}
               className="absolute inset-0 bg-violet-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
             >
               <motion.div
                 initial={{ scale: 0.8, y: 50 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.8, y: 50 }}
+                onClick={(e) => e.stopPropagation()}
                 className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl"
               >
                 <h3 className="text-2xl font-bold text-violet-900 mb-6 text-center">Settings</h3>
@@ -314,10 +328,62 @@ function App() {
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
 
-      {/* Floating History (Desktop Only suggestion, or simple list below) */}
-      {/* Kept simple for now to focus on main card, but could be added if requested */}
+        {/* History Modal */}
+        <AnimatePresence>
+          {showHistory && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowHistory(false)}
+              className="absolute inset-0 bg-violet-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+            >
+              <motion.div
+                initial={{ scale: 0.8, y: 50 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.8, y: 50 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl overflow-hidden"
+              >
+                <h3 className="text-2xl font-bold text-violet-900 mb-6 text-center">History</h3>
+
+                <div className="space-y-3 mb-6 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                  {history.length === 0 ? (
+                    <div className="text-center text-slate-400 py-4 font-medium">No attempts yet!</div>
+                  ) : (
+                    history.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span className="font-bold text-slate-700 text-lg tracking-wider">{item.question}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            "font-bold text-lg",
+                            item.correct ? "text-emerald-500" : "text-pink-500 line-through"
+                          )}>
+                            {item.userAnswer}
+                          </span>
+                          <span className="text-xl">
+                            {item.correct ? '✅' : '❌'}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <motion.button
+                  whileTap={buttonTap}
+                  onClick={() => setShowHistory(false)}
+                  className="w-full bg-violet-500 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-violet-600"
+                >
+                  Close
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+      </motion.div>
     </div>
   );
 }
