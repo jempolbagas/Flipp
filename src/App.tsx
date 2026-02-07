@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { generateProblem, Operation, Problem } from './utils/mathLogic';
+import { generateHint, HintData } from './utils/mathHints';
+import HintCard from './components/HintCard';
 import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -60,6 +62,8 @@ function App() {
   const [streakHistory, setStreakHistory] = useState<StreakRecord[]>([]);
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [shake, setShake] = useState(0); // Key to trigger shake animation
+  const [showHint, setShowHint] = useState<boolean>(false);
+  const [hintData, setHintData] = useState<HintData | null>(null);
 
   // Settings
   const [minRange, setMinRange] = useState<number>(1);
@@ -223,6 +227,16 @@ function App() {
     getNewProblem();
   };
 
+  const toggleHint = () => {
+    if (showHint) {
+      setShowHint(false);
+    } else {
+      const data = generateHint(operation);
+      setHintData(data);
+      setShowHint(true);
+    }
+  };
+
   // --- Animation Variants ---
   const containerVariants = {
     hidden: { opacity: 0, scale: 0.9 },
@@ -342,7 +356,29 @@ function App() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            <motion.button
+              whileTap={buttonTap}
+              onClick={toggleHint}
+              className="absolute top-1/2 -translate-y-1/2 right-4 text-violet-300 hover:text-violet-500 transition-colors p-2"
+              title="Need a hint?"
+            >
+              <span className="text-xl">💡</span>
+            </motion.button>
           </div>
+
+          <AnimatePresence>
+            {showHint && hintData && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <HintCard hintData={hintData} onClose={() => setShowHint(false)} />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <motion.button
             whileTap={buttonTap}
