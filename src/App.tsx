@@ -41,14 +41,23 @@ function BackgroundBlob() {
   );
 }
 
+export interface StreakRecord {
+  id: string;
+  timestamp: number;
+  value: number;
+  operation: Operation;
+  range: { min: number, max: number };
+}
+
 function App() {
   const [operation, setOperation] = useState<Operation>('add');
   const [problem, setProblem] = useState<Problem | null>(null);
   const [userAnswer, setUserAnswer] = useState<string>('');
   const [score, setScore] = useState<number>(0);
-  const [streak, setStreak] = useState<number>(0);
+  const [streak, setStreak] = useState<Record<Operation, number>>({ add: 0, sub: 0, mul: 0, div: 0 });
   const [highScore, setHighScore] = useState<number>(0);
   const [history, setHistory] = useState<Array<{ question: string, userAnswer: string, correct: boolean, timestamp: number }>>([]);
+  const [streakHistory, setStreakHistory] = useState<StreakRecord[]>([]);
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [shake, setShake] = useState(0); // Key to trigger shake animation
 
@@ -57,6 +66,7 @@ function App() {
   const [maxRange, setMaxRange] = useState<number>(20); // Default bumped to 20 for fun
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showHistory, setShowHistory] = useState<boolean>(false);
+  const [historyTab, setHistoryTab] = useState<'problems' | 'streaks'>('problems');
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -65,18 +75,46 @@ function App() {
     const savedScore = localStorage.getItem('flipp_score');
     const savedStreak = localStorage.getItem('flipp_streak');
     const savedHighScore = localStorage.getItem('flipp_highScore');
+    const savedStreakHistory = localStorage.getItem('flipp_streakHistory');
 
     if (savedScore) setScore(parseInt(savedScore, 10));
-    if (savedStreak) setStreak(parseInt(savedStreak, 10));
+    if (savedStreak) {
+      try {
+        const parsedStreak = JSON.parse(savedStreak);
+        setStreak(prev => ({ ...prev, ...parsedStreak }));
+      } catch (e) {
+        console.log("Migrating streak from single number or error parsing", e);
+      }
+    }
     if (savedHighScore) setHighScore(parseInt(savedHighScore, 10));
+    if (savedStreakHistory) {
+      try {
+        setStreakHistory(JSON.parse(savedStreakHistory));
+      } catch (e) {
+        console.log("Error parsing streak history", e);
+      }
+    }
   }, []);
 
   // Save to LocalStorage on change
   useEffect(() => {
     localStorage.setItem('flipp_score', score.toString());
-    localStorage.setItem('flipp_streak', streak.toString());
+    localStorage.setItem('flipp_streak', JSON.stringify(streak));
     localStorage.setItem('flipp_highScore', highScore.toString());
-  }, [score, streak, highScore]);
+    localStorage.setItem('flipp_streakHistory', JSON.stringify(streakHistory));
+  }, [score, streak, highScore, streakHistory]);
+
+  const saveStreak = (op: Operation, val: number) => {
+    if (val <= 0) return;
+    const newRecord: StreakRecord = {
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+      value: val,
+      operation: op,
+      range: { min: minRange, max: maxRange }
+    };
+    setStreakHistory(prev => [newRecord, ...prev].slice(0, 50));
+  };
 
   const getNewProblem = (op?: Operation) => {
     const newProblem = generateProblem(op || operation, minRange, maxRange);
@@ -122,7 +160,7 @@ function App() {
       setFeedback('correct');
       setScore(s => s + 1);
       setStreak(s => {
-        const newStreak = s + 1;
+        const newStreak = { ...s, [operation]: s[operation] + 1 };
         setHighScore(prevHigh => Math.max(prevHigh, score + 1));
         return newStreak;
       });
@@ -136,8 +174,11 @@ function App() {
     } else {
       setFeedback('incorrect');
       setShake(prev => prev + 1); // Trigger shake
+      // Save streak before resetting
+      saveStreak(operation, streak[operation]);
+
       setScore(s => Math.max(0, s - 1));
-      setStreak(0);
+      setStreak(s => ({ ...s, [operation]: 0 }));
       setTimeout(() => {
         setFeedback(null);
         setUserAnswer('');
@@ -152,8 +193,33 @@ function App() {
     }
   };
 
+  // Track settings on open to detect changes
+  const [initialSettings, setInitialSettings] = useState<{ min: number, max: number } | null>(null);
+
+  const handleOpenSettings = () => {
+    setInitialSettings({ min: minRange, max: maxRange });
+    setShowSettings(true);
+  };
+
   const applySettings = () => {
     setShowSettings(false);
+
+    // Check if ranges changed
+    if (initialSettings && (minRange !== initialSettings.min || maxRange !== initialSettings.max)) {
+      setHistory([]);
+
+      // Save streaks for all active operations before reset
+      (Object.keys(streak) as Operation[]).forEach(op => {
+        if (streak[op] > 0) {
+          saveStreak(op, streak[op]);
+        }
+      });
+
+      setStreak({ add: 0, sub: 0, mul: 0, div: 0 });
+      setScore(0);
+      setFeedback(null); // Clear any feedback
+    }
+
     getNewProblem();
   };
 
@@ -190,7 +256,7 @@ function App() {
               </motion.button>
               <motion.button
                 whileTap={buttonTap}
-                onClick={() => setShowSettings(!showSettings)}
+                onClick={handleOpenSettings}
                 className="bg-white/20 p-2 rounded-full hover:bg-white/30 transition-colors"
                 title="Settings"
               >
@@ -201,7 +267,7 @@ function App() {
 
           <div className="grid grid-cols-3 gap-3">
             <StatBox label="Score" value={score} />
-            <StatBox label="Streak" value={streak} isStreak />
+            <StatBox label="Streak" value={streak[operation]} isStreak />
             <StatBox label="Best" value={highScore} />
           </div>
         </div>
@@ -344,37 +410,86 @@ function App() {
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.8, y: 50 }}
                 onClick={(e) => e.stopPropagation()}
-                className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl overflow-hidden"
+                className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
               >
-                <h3 className="text-2xl font-bold text-violet-900 mb-6 text-center">History</h3>
+                <h3 className="text-2xl font-bold text-violet-900 mb-4 text-center">History</h3>
 
-                <div className="space-y-3 mb-6 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                  {history.length === 0 ? (
-                    <div className="text-center text-slate-400 py-4 font-medium">No attempts yet!</div>
-                  ) : (
-                    history.map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
-                        <span className="font-bold text-slate-700 text-lg tracking-wider">{item.question}</span>
-                        <div className="flex items-center gap-2">
-                          <span className={cn(
-                            "font-bold text-lg",
-                            item.correct ? "text-emerald-500" : "text-pink-500 line-through"
-                          )}>
-                            {item.userAnswer}
-                          </span>
-                          <span className="text-xl">
-                            {item.correct ? '✅' : '❌'}
-                          </span>
+                {/* Tabs */}
+                <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
+                  <button
+                    onClick={() => setHistoryTab('problems')}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-sm font-bold transition-all",
+                      historyTab === 'problems' ? "bg-white text-violet-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                    )}
+                  >
+                    Context
+                  </button>
+                  <button
+                    onClick={() => setHistoryTab('streaks')}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-sm font-bold transition-all",
+                      historyTab === 'streaks' ? "bg-white text-violet-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                    )}
+                  >
+                    Streaks
+                  </button>
+                </div>
+
+                <div className="space-y-3 mb-6 overflow-y-auto pr-2 custom-scrollbar flex-1">
+                  {historyTab === 'problems' ? (
+                    history.length === 0 ? (
+                      <div className="text-center text-slate-400 py-4 font-medium">No attempts yet!</div>
+                    ) : (
+                      history.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                          <span className="font-bold text-slate-700 text-lg tracking-wider">{item.question}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "font-bold text-lg",
+                              item.correct ? "text-emerald-500" : "text-pink-500 line-through"
+                            )}>
+                              {item.userAnswer}
+                            </span>
+                            <span className="text-xl">
+                              {item.correct ? '✅' : '❌'}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      ))
+                    )
+                  ) : (
+                    // Streak History Tab
+                    streakHistory.length === 0 ? (
+                      <div className="text-center text-slate-400 py-4 font-medium">No streaks recorded yet!</div>
+                    ) : (
+                      streakHistory.map((item) => (
+                        <div key={item.id} className="flex justify-between items-center bg-amber-50 p-3 rounded-xl border border-amber-100">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">
+                                {item.operation === 'add' ? '➕' : item.operation === 'sub' ? '➖' : item.operation === 'mul' ? '✖️' : '➗'}
+                              </span>
+                              <span className="font-bold text-amber-900 text-lg">Streak: {item.value}</span>
+                            </div>
+                            <span className="text-xs text-amber-600/70 font-medium">
+                              Range: {item.range.min} - {item.range.max}
+                            </span>
+                            <span className="text-[10px] text-amber-400">
+                              {new Date(item.timestamp).toLocaleDateString()} {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div className="text-2xl">🏆</div>
+                        </div>
+                      ))
+                    )
                   )}
                 </div>
 
                 <motion.button
                   whileTap={buttonTap}
                   onClick={() => setShowHistory(false)}
-                  className="w-full bg-violet-500 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-violet-600"
+                  className="w-full bg-violet-500 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-violet-600 shrink-0"
                 >
                   Close
                 </motion.button>
