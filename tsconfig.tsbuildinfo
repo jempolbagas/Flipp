@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/utils/mathlogic.ts"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/backgroundblob.tsx","./src/components/hintcard.tsx","./src/components/settinginput.tsx","./src/components/statbox.tsx","./src/utils/mathhints.ts","./src/utils/mathlogic.ts"],"version":"5.9.3"}
