@@ -35,7 +35,7 @@ const HistoryModal: React.FC<HistoryModalProps> = ({
                         animate={{ scale: 1, y: 0 }}
                         exit={{ scale: 0.8, y: 50 }}
                         onClick={(e) => e.stopPropagation()}
-                        className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+                        className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[85vh] max-h-[85dvh]"
                     >
                         <h3 className="text-2xl font-bold text-violet-900 mb-4 text-center">History</h3>
 

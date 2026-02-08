@@ -93,7 +93,7 @@ function App() {
               <motion.button
                 whileTap={buttonTap}
                 onClick={() => setShowHistory(!showHistory)}
-                className="bg-white/20 p-2 rounded-full hover:bg-white/30 transition-colors"
+                className="bg-white/20 p-3 md:p-2 rounded-full hover:bg-white/30 transition-colors"
                 title="History"
               >
                 <span className="text-xl">📜</span>
@@ -101,7 +101,7 @@ function App() {
               <motion.button
                 whileTap={buttonTap}
                 onClick={handleOpenSettings}
-                className="bg-white/20 p-2 rounded-full hover:bg-white/30 transition-colors"
+                className="bg-white/20 p-3 md:p-2 rounded-full hover:bg-white/30 transition-colors"
                 title="Settings"
               >
                 <span className="text-xl">⚙️</span>
@@ -117,7 +117,7 @@ function App() {
         </div>
 
         {/* Game Area */}
-        <div className="p-8 flex flex-col items-center space-y-8">
+        <div className="p-6 md:p-8 flex flex-col items-center space-y-6 md:space-y-8">
 
           {/* Operations */}
           <GameControls operation={logic.operation} onOperationChange={logic.setOperation} />
@@ -129,7 +129,7 @@ function App() {
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring' as const, stiffness: 300 }}
-              className="text-6xl font-black text-slate-700 mb-2"
+              className="text-5xl md:text-6xl font-black text-slate-700 mb-2"
             >
               {logic.problem ? logic.problem.question : '...'}
             </motion.div>
@@ -144,13 +144,15 @@ function App() {
               <input
                 ref={inputRef}
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={logic.userAnswer}
                 onChange={(e) => logic.setUserAnswer(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="?"
                 disabled={logic.feedback === 'correct'}
                 className={cn(
-                  "w-full h-20 text-center text-4xl font-bold rounded-2xl border-4 bg-slate-50 focus:outline-none focus:ring-4 transition-all placeholder:text-slate-300",
+                  "w-full h-16 md:h-20 text-center text-3xl md:text-4xl font-bold rounded-2xl border-4 bg-slate-50 focus:outline-none focus:ring-4 transition-all placeholder:text-slate-300",
                   logic.feedback === 'correct' ? "border-emerald-400 bg-emerald-50 text-emerald-600" :
                     logic.feedback === 'incorrect' ? "border-pink-400 bg-pink-50 text-pink-600" :
                       "border-slate-200 focus:border-violet-400 focus:ring-violet-100"

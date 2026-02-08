@@ -20,7 +20,7 @@ const GameControls: React.FC<GameControlsProps> = ({ operation, onOperationChang
                     whileTap={buttonTap}
                     onClick={() => onOperationChange(op)}
                     className={cn(
-                        "w-12 h-12 rounded-xl text-2xl font-bold flex items-center justify-center transition-all shadow-sm",
+                        "w-14 h-14 md:w-12 md:h-12 rounded-xl text-2xl font-bold flex items-center justify-center transition-all shadow-sm",
                         operation === op
                             ? "bg-violet-500 text-white shadow-violet-200 shadow-md transform scale-105"
                             : "bg-white text-violet-300 hover:bg-violet-100"

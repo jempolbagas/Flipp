@@ -12,4 +12,35 @@
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
+  /* Dynamic viewport height for mobile browsers */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Smooth touch scrolling for iOS */
+.custom-scrollbar {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Remove spinner from number inputs on mobile */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Reduced motion for accessibility and performance */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
