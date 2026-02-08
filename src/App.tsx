@@ -1,180 +1,42 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { generateProblem, Operation, Problem } from './utils/mathLogic';
 import { generateHint, HintData } from './utils/mathHints';
 import HintCard from './components/HintCard';
 import { motion, AnimatePresence } from 'framer-motion';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-// Utility for clean tailwind classes
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from './utils/cn';
 
 import BackgroundBlob from './components/BackgroundBlob';
 import StatBox from './components/StatBox';
-import SettingInput from './components/SettingInput';
+import SettingsModal from './components/SettingsModal';
+import HistoryModal from './components/HistoryModal';
+import GameControls from './components/GameControls';
 
-export interface StreakRecord {
-  id: string;
-  timestamp: number;
-  value: number;
-  operation: Operation;
-  range: { min: number, max: number };
-}
+import { useGameLogic } from './hooks/useGameLogic';
 
 function App() {
-  const [operation, setOperation] = useState<Operation>('add');
-  const [problem, setProblem] = useState<Problem | null>(null);
-  const [userAnswer, setUserAnswer] = useState<string>('');
-  const [score, setScore] = useState<number>(0);
-  const [streak, setStreak] = useState<Record<Operation, number>>({ add: 0, sub: 0, mul: 0, div: 0 });
-  const [highScore, setHighScore] = useState<number>(0);
-  const [history, setHistory] = useState<Array<{ id: string, question: string, userAnswer: string, correct: boolean, timestamp: number }>>([]);
-  const [streakHistory, setStreakHistory] = useState<StreakRecord[]>([]);
-  const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
-  const [shake, setShake] = useState(0); // Key to trigger shake animation
+  const logic = useGameLogic();
+
   const [showHint, setShowHint] = useState<boolean>(false);
   const [hintData, setHintData] = useState<HintData | null>(null);
 
-  // Settings
-  const [minRange, setMinRange] = useState<number>(1);
-  const [maxRange, setMaxRange] = useState<number>(20); // Default bumped to 20 for fun
+  // Settings UI State
   const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [initialSettings, setInitialSettings] = useState<{ min: number, max: number } | null>(null);
+
+  // History UI State
   const [showHistory, setShowHistory] = useState<boolean>(false);
-  const [historyTab, setHistoryTab] = useState<'problems' | 'streaks'>('problems');
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load from LocalStorage on mount
+  // Focus management
   useEffect(() => {
-    const savedScore = localStorage.getItem('flipp_score');
-    const savedStreak = localStorage.getItem('flipp_streak');
-    const savedHighScore = localStorage.getItem('flipp_highScore');
-    const savedStreakHistory = localStorage.getItem('flipp_streakHistory');
-
-    if (savedScore) setScore(parseInt(savedScore, 10));
-    if (savedStreak) {
-      try {
-        const parsedStreak = JSON.parse(savedStreak);
-        setStreak(prev => ({ ...prev, ...parsedStreak }));
-      } catch (e) {
-        console.log("Migrating streak from single number or error parsing", e);
-      }
+    if (!showSettings && !showHistory && inputRef.current) {
+      inputRef.current.focus();
     }
-    if (savedHighScore) setHighScore(parseInt(savedHighScore, 10));
-    if (savedStreakHistory) {
-      try {
-        setStreakHistory(JSON.parse(savedStreakHistory));
-      } catch (e) {
-        console.log("Error parsing streak history", e);
-      }
-    }
-  }, []);
+  }, [logic.problem, logic.feedback, showSettings, showHistory]);
 
-  // Save to LocalStorage on change
-  useEffect(() => {
-    localStorage.setItem('flipp_score', score.toString());
-    localStorage.setItem('flipp_streak', JSON.stringify(streak));
-    localStorage.setItem('flipp_highScore', highScore.toString());
-    localStorage.setItem('flipp_streakHistory', JSON.stringify(streakHistory));
-  }, [score, streak, highScore, streakHistory]);
-
-  const saveStreak = (op: Operation, val: number) => {
-    if (val <= 0) return;
-    const newRecord: StreakRecord = {
-      id: crypto.randomUUID(),
-      timestamp: Date.now(),
-      value: val,
-      operation: op,
-      range: { min: minRange, max: maxRange }
-    };
-    setStreakHistory(prev => [newRecord, ...prev].slice(0, 50));
-  };
-
-  const getNewProblem = (op?: Operation) => {
-    const newProblem = generateProblem(op || operation, minRange, maxRange);
-    setProblem(newProblem);
-    setUserAnswer('');
-    setFeedback(null);
-    if (inputRef.current) inputRef.current.focus();
-  };
-
-  // Re-generate problem if ranges change (optional, but good UX)
-  useEffect(() => {
-    getNewProblem();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleOperationChange = (op: Operation) => {
-    setOperation(op);
-    const newProblem = generateProblem(op, minRange, maxRange);
-    setProblem(newProblem);
-    setUserAnswer('');
-    setFeedback(null);
-    if (inputRef.current) inputRef.current.focus();
-  };
-
-  const handleCheck = () => {
-    if (!problem) return;
-
-    const val = parseInt(userAnswer, 10);
-    if (isNaN(val)) return;
-
-    const isCorrect = val === problem.answer;
-
-    // Update History
-    const newHistoryItem = {
-      id: crypto.randomUUID(),
-      question: problem.question,
-      userAnswer: userAnswer,
-      correct: isCorrect,
-      timestamp: Date.now(),
-    };
-    setHistory(prev => [newHistoryItem, ...prev].slice(0, 10)); // Keep last 10
-
-    if (isCorrect) {
-      setFeedback('correct');
-      setScore(s => s + 1);
-      setStreak(s => {
-        const newStreak = { ...s, [operation]: s[operation] + 1 };
-        setHighScore(prevHigh => Math.max(prevHigh, score + 1));
-        return newStreak;
-      });
-      if (score + 1 > highScore) {
-        setHighScore(score + 1);
-      }
-
-      setTimeout(() => {
-        getNewProblem();
-      }, 1000);
-    } else {
-      setFeedback('incorrect');
-      setShake(prev => prev + 1); // Trigger shake
-      // Save streak before resetting
-      saveStreak(operation, streak[operation]);
-
-      setScore(s => Math.max(0, s - 1));
-      setStreak(s => ({ ...s, [operation]: 0 }));
-      setTimeout(() => {
-        setFeedback(null);
-        setUserAnswer('');
-        if (inputRef.current) inputRef.current.focus();
-      }, 1000);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleCheck();
-    }
-  };
-
-  // Track settings on open to detect changes
-  const [initialSettings, setInitialSettings] = useState<{ min: number, max: number } | null>(null);
 
   const handleOpenSettings = () => {
-    setInitialSettings({ min: minRange, max: maxRange });
+    setInitialSettings({ min: logic.minRange, max: logic.maxRange });
     setShowSettings(true);
   };
 
@@ -182,31 +44,26 @@ function App() {
     setShowSettings(false);
 
     // Check if ranges changed
-    if (initialSettings && (minRange !== initialSettings.min || maxRange !== initialSettings.max)) {
-      setHistory([]);
-
-      // Save streaks for all active operations before reset
-      (Object.keys(streak) as Operation[]).forEach(op => {
-        if (streak[op] > 0) {
-          saveStreak(op, streak[op]);
-        }
-      });
-
-      setStreak({ add: 0, sub: 0, mul: 0, div: 0 });
-      setScore(0);
-      setFeedback(null); // Clear any feedback
+    if (initialSettings && (logic.minRange !== initialSettings.min || logic.maxRange !== initialSettings.max)) {
+      logic.resetGameStore();
+    } else {
+      logic.getNewProblem();
     }
-
-    getNewProblem();
   };
 
   const toggleHint = () => {
     if (showHint) {
       setShowHint(false);
     } else {
-      const data = generateHint(operation);
+      const data = generateHint(logic.operation);
       setHintData(data);
       setShowHint(true);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      logic.checkAnswer();
     }
   };
 
@@ -253,9 +110,9 @@ function App() {
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <StatBox label="Score" value={score} />
-            <StatBox label="Streak" value={streak[operation]} isStreak />
-            <StatBox label="Best" value={highScore} />
+            <StatBox label="Score" value={logic.score} />
+            <StatBox label="Streak" value={logic.streak[logic.operation]} isStreak />
+            <StatBox label="Best" value={logic.highScore} />
           </div>
         </div>
 
@@ -263,62 +120,46 @@ function App() {
         <div className="p-8 flex flex-col items-center space-y-8">
 
           {/* Operations */}
-          <div className="flex space-x-3 bg-violet-50 p-2 rounded-2xl">
-            {(['add', 'sub', 'mul', 'div'] as Operation[]).map(op => (
-              <motion.button
-                key={op}
-                whileTap={buttonTap}
-                onClick={() => handleOperationChange(op)}
-                className={cn(
-                  "w-12 h-12 rounded-xl text-2xl font-bold flex items-center justify-center transition-all shadow-sm",
-                  operation === op
-                    ? "bg-violet-500 text-white shadow-violet-200 shadow-md transform scale-105"
-                    : "bg-white text-violet-300 hover:bg-violet-100"
-                )}
-              >
-                {op === 'add' ? '+' : op === 'sub' ? '−' : op === 'mul' ? '×' : '÷'}
-              </motion.button>
-            ))}
-          </div>
+          <GameControls operation={logic.operation} onOperationChange={logic.setOperation} />
 
           {/* Problem */}
           <div className="text-center">
             <motion.div
-              key={problem?.question} // Re-animate on new problem
+              key={logic.problem?.question} // Re-animate on new problem
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring' as const, stiffness: 300 }}
               className="text-6xl font-black text-slate-700 mb-2"
             >
-              {problem ? problem.question : '...'}
+              {logic.problem ? logic.problem.question : '...'}
             </motion.div>
           </div>
 
           {/* Input & Check */}
           <div className="w-full relative">
             <motion.div
-              animate={shake ? { x: [0, -10, 10, -10, 10, 0] } : {}}
+              animate={logic.shake ? { x: [0, -10, 10, -10, 10, 0] } : {}}
               transition={{ duration: 0.4 }}
             >
               <input
                 ref={inputRef}
                 type="number"
-                value={userAnswer}
-                onChange={(e) => setUserAnswer(e.target.value)}
+                value={logic.userAnswer}
+                onChange={(e) => logic.setUserAnswer(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="?"
-                disabled={feedback === 'correct'}
+                disabled={logic.feedback === 'correct'}
                 className={cn(
                   "w-full h-20 text-center text-4xl font-bold rounded-2xl border-4 bg-slate-50 focus:outline-none focus:ring-4 transition-all placeholder:text-slate-300",
-                  feedback === 'correct' ? "border-emerald-400 bg-emerald-50 text-emerald-600" :
-                    feedback === 'incorrect' ? "border-pink-400 bg-pink-50 text-pink-600" :
+                  logic.feedback === 'correct' ? "border-emerald-400 bg-emerald-50 text-emerald-600" :
+                    logic.feedback === 'incorrect' ? "border-pink-400 bg-pink-50 text-pink-600" :
                       "border-slate-200 focus:border-violet-400 focus:ring-violet-100"
                 )}
               />
             </motion.div>
 
             <AnimatePresence>
-              {feedback === 'correct' && (
+              {logic.feedback === 'correct' && (
                 <motion.div
                   initial={{ scale: 0, rotate: -10 }}
                   animate={{ scale: 1, rotate: 0 }}
@@ -356,11 +197,11 @@ function App() {
           <motion.button
             whileTap={buttonTap}
             whileHover={{ scale: 1.02 }}
-            onClick={handleCheck}
-            disabled={feedback !== null}
+            onClick={logic.checkAnswer}
+            disabled={logic.feedback !== null}
             className={cn(
               "w-full py-4 rounded-2xl text-xl font-black text-white shadow-[0_4px_0_0_rgba(0,0,0,0.1)] transition-all active:shadow-none active:translate-y-1",
-              feedback === null ? "bg-violet-500 hover:bg-violet-600 shadow-violet-700" : "bg-slate-300 shadow-slate-400 cursor-not-allowed"
+              logic.feedback === null ? "bg-violet-500 hover:bg-violet-600 shadow-violet-700" : "bg-slate-300 shadow-slate-400 cursor-not-allowed"
             )}
           >
             check!
@@ -368,150 +209,27 @@ function App() {
 
         </div>
 
-        {/* Global Modal Overlay to handle stacking if needed, though simple checks work */}
-        <AnimatePresence>
-          {showSettings && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowSettings(false)}
-              className="absolute inset-0 bg-violet-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
-            >
-              <motion.div
-                initial={{ scale: 0.8, y: 50 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.8, y: 50 }}
-                onClick={(e) => e.stopPropagation()}
-                className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl"
-              >
-                <h3 className="text-2xl font-bold text-violet-900 mb-6 text-center">Settings</h3>
+        <SettingsModal
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+          minRange={logic.minRange}
+          setMinRange={logic.setMinRange}
+          maxRange={logic.maxRange}
+          setMaxRange={logic.setMaxRange}
+          onApply={applySettings}
+        />
 
-                <div className="space-y-4 mb-8">
-                  <SettingInput label="Min Number" value={minRange} onChange={setMinRange} />
-                  <SettingInput label="Max Number" value={maxRange} onChange={setMaxRange} />
-                </div>
-
-                <motion.button
-                  whileTap={buttonTap}
-                  onClick={applySettings}
-                  className="w-full bg-violet-500 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-violet-600"
-                >
-                  Done
-                </motion.button>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* History Modal */}
-        <AnimatePresence>
-          {showHistory && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowHistory(false)}
-              className="absolute inset-0 bg-violet-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
-            >
-              <motion.div
-                initial={{ scale: 0.8, y: 50 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.8, y: 50 }}
-                onClick={(e) => e.stopPropagation()}
-                className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
-              >
-                <h3 className="text-2xl font-bold text-violet-900 mb-4 text-center">History</h3>
-
-                {/* Tabs */}
-                <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
-                  <button
-                    onClick={() => setHistoryTab('problems')}
-                    className={cn(
-                      "flex-1 py-2 rounded-lg text-sm font-bold transition-all",
-                      historyTab === 'problems' ? "bg-white text-violet-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
-                    )}
-                  >
-                    Context
-                  </button>
-                  <button
-                    onClick={() => setHistoryTab('streaks')}
-                    className={cn(
-                      "flex-1 py-2 rounded-lg text-sm font-bold transition-all",
-                      historyTab === 'streaks' ? "bg-white text-violet-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
-                    )}
-                  >
-                    Streaks
-                  </button>
-                </div>
-
-                <div className="space-y-3 mb-6 overflow-y-auto pr-2 custom-scrollbar flex-1">
-                  {historyTab === 'problems' ? (
-                    history.length === 0 ? (
-                      <div className="text-center text-slate-400 py-4 font-medium">No attempts yet!</div>
-                    ) : (
-                      history.map((item) => (
-                        <div key={item.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
-                          <span className="font-bold text-slate-700 text-lg tracking-wider">{item.question}</span>
-                          <div className="flex items-center gap-2">
-                            <span className={cn(
-                              "font-bold text-lg",
-                              item.correct ? "text-emerald-500" : "text-pink-500 line-through"
-                            )}>
-                              {item.userAnswer}
-                            </span>
-                            <span className="text-xl">
-                              {item.correct ? '✅' : '❌'}
-                            </span>
-                          </div>
-                        </div>
-                      ))
-                    )
-                  ) : (
-                    // Streak History Tab
-                    streakHistory.length === 0 ? (
-                      <div className="text-center text-slate-400 py-4 font-medium">No streaks recorded yet!</div>
-                    ) : (
-                      streakHistory.map((item) => (
-                        <div key={item.id} className="flex justify-between items-center bg-amber-50 p-3 rounded-xl border border-amber-100">
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg">
-                                {item.operation === 'add' ? '➕' : item.operation === 'sub' ? '➖' : item.operation === 'mul' ? '✖️' : '➗'}
-                              </span>
-                              <span className="font-bold text-amber-900 text-lg">Streak: {item.value}</span>
-                            </div>
-                            <span className="text-xs text-amber-600/70 font-medium">
-                              Range: {item.range.min} - {item.range.max}
-                            </span>
-                            <span className="text-[10px] text-amber-400">
-                              {new Date(item.timestamp).toLocaleDateString()} {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <div className="text-2xl">🏆</div>
-                        </div>
-                      ))
-                    )
-                  )}
-                </div>
-
-                <motion.button
-                  whileTap={buttonTap}
-                  onClick={() => setShowHistory(false)}
-                  className="w-full bg-violet-500 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-violet-600 shrink-0"
-                >
-                  Close
-                </motion.button>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <HistoryModal
+          isOpen={showHistory}
+          onClose={() => setShowHistory(false)}
+          history={logic.history}
+          streakHistory={logic.streakHistory}
+        />
 
       </motion.div>
     </div>
   );
 }
 
-
-
 export default App;
+
