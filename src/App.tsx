@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { generateHint, HintData } from './utils/mathHints';
 import HintCard from './components/HintCard';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { cn } from './utils/cn';
 
 import BackgroundBlob from './components/BackgroundBlob';
@@ -9,11 +9,14 @@ import StatBox from './components/StatBox';
 import SettingsModal from './components/SettingsModal';
 import HistoryModal from './components/HistoryModal';
 import GameControls from './components/GameControls';
+import EmojiBurst from './components/EmojiBurst';
 
 import { useGameLogic } from './hooks/useGameLogic';
+import { useHaptics } from './hooks/useHaptics';
 
 function App() {
   const logic = useGameLogic();
+  const haptics = useHaptics();
 
   const [showHint, setShowHint] = useState<boolean>(false);
   const [hintData, setHintData] = useState<HintData | null>(null);
@@ -24,6 +27,10 @@ function App() {
 
   // History UI State
   const [showHistory, setShowHistory] = useState<boolean>(false);
+
+  // Emoji burst trigger
+  const [burstTrigger, setBurstTrigger] = useState(0);
+  const [burstIntensity, setBurstIntensity] = useState<'normal' | 'celebration'>('normal');
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -63,9 +70,61 @@ function App() {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      logic.checkAnswer();
+      handleCheckAnswer();
     }
   };
+
+  // Enhanced check answer with haptics and emoji burst
+  const handleCheckAnswer = useCallback(() => {
+    if (!logic.problem || logic.feedback !== null) return;
+
+    const val = parseInt(logic.userAnswer, 10);
+    if (isNaN(val)) return;
+
+    const isCorrect = val === logic.problem.answer;
+    const currentStreak = logic.streak[logic.operation];
+
+    if (isCorrect) {
+      haptics.vibrateSuccess();
+
+      // Check for milestone celebration (5, 10, 15, 20...)
+      const newStreak = currentStreak + 1;
+      if (newStreak % 5 === 0) {
+        setBurstIntensity('celebration');
+        haptics.vibrateCelebration();
+      } else {
+        setBurstIntensity('normal');
+      }
+      setBurstTrigger(prev => prev + 1);
+    } else {
+      haptics.vibrateError();
+    }
+
+    logic.checkAnswer();
+  }, [logic, haptics]);
+
+  // Swipe gesture handler for operation switching (mobile)
+  const operations = ['add', 'sub', 'mul', 'div'] as const;
+
+  const handleSwipe = useCallback((_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    const threshold = 50; // Minimum swipe distance
+
+    if (Math.abs(info.offset.x) > threshold) {
+      const currentIndex = operations.indexOf(logic.operation);
+
+      if (info.offset.x > 0) {
+        // Swipe right - previous operation
+        const prevIndex = currentIndex === 0 ? operations.length - 1 : currentIndex - 1;
+        logic.setOperation(operations[prevIndex]);
+      } else {
+        // Swipe left - next operation
+        const nextIndex = (currentIndex + 1) % operations.length;
+        logic.setOperation(operations[nextIndex]);
+      }
+
+      haptics.vibrateTap();
+    }
+  }, [logic, haptics, operations]);
 
   // --- Animation Variants ---
   const containerVariants = {
@@ -116,8 +175,16 @@ function App() {
           </div>
         </div>
 
-        {/* Game Area */}
-        <div className="p-6 md:p-8 flex flex-col items-center space-y-6 md:space-y-8">
+        {/* Game Area - with swipe gesture support */}
+        <motion.div
+          className="p-6 md:p-8 flex flex-col items-center space-y-6 md:space-y-8 relative"
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.1}
+          onDragEnd={handleSwipe}
+        >
+          {/* Emoji Burst */}
+          <EmojiBurst trigger={burstTrigger} intensity={burstIntensity} />
 
           {/* Operations */}
           <GameControls operation={logic.operation} onOperationChange={logic.setOperation} />
@@ -199,7 +266,7 @@ function App() {
           <motion.button
             whileTap={buttonTap}
             whileHover={{ scale: 1.02 }}
-            onClick={logic.checkAnswer}
+            onClick={handleCheckAnswer}
             disabled={logic.feedback !== null}
             className={cn(
               "w-full py-4 rounded-2xl text-xl font-black text-white shadow-[0_4px_0_0_rgba(0,0,0,0.1)] transition-all active:shadow-none active:translate-y-1",
@@ -209,7 +276,7 @@ function App() {
             check!
           </motion.button>
 
-        </div>
+        </motion.div>
 
         <SettingsModal
           isOpen={showSettings}
