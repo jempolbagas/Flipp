@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { generateProblem, Operation, Problem } from './utils/mathLogic';
 import { generateHint, HintData } from './utils/mathHints';
 import HintCard from './components/HintCard';
-import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -11,37 +11,9 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Interactive Background Component
-function BackgroundBlob() {
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-
-  // Smooth spring animation for the blob
-  const springX = useSpring(mouseX, { stiffness: 50, damping: 20 });
-  const springY = useSpring(mouseY, { stiffness: 50, damping: 20 });
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      mouseX.set(e.clientX);
-      mouseY.set(e.clientY);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [mouseX, mouseY]);
-
-  return (
-    <motion.div
-      className="fixed top-0 left-0 w-96 h-96 bg-gradient-to-r from-violet-300 to-pink-300 rounded-full blur-3xl opacity-40 pointer-events-none -z-10"
-      style={{
-        x: springX,
-        y: springY,
-        translateX: '-50%',
-        translateY: '-50%',
-      }}
-    />
-  );
-}
+import BackgroundBlob from './components/BackgroundBlob';
+import StatBox from './components/StatBox';
+import SettingInput from './components/SettingInput';
 
 export interface StreakRecord {
   id: string;
@@ -58,7 +30,7 @@ function App() {
   const [score, setScore] = useState<number>(0);
   const [streak, setStreak] = useState<Record<Operation, number>>({ add: 0, sub: 0, mul: 0, div: 0 });
   const [highScore, setHighScore] = useState<number>(0);
-  const [history, setHistory] = useState<Array<{ question: string, userAnswer: string, correct: boolean, timestamp: number }>>([]);
+  const [history, setHistory] = useState<Array<{ id: string, question: string, userAnswer: string, correct: boolean, timestamp: number }>>([]);
   const [streakHistory, setStreakHistory] = useState<StreakRecord[]>([]);
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [shake, setShake] = useState(0); // Key to trigger shake animation
@@ -153,6 +125,7 @@ function App() {
 
     // Update History
     const newHistoryItem = {
+      id: crypto.randomUUID(),
       question: problem.question,
       userAnswer: userAnswer,
       correct: isCorrect,
@@ -477,8 +450,8 @@ function App() {
                     history.length === 0 ? (
                       <div className="text-center text-slate-400 py-4 font-medium">No attempts yet!</div>
                     ) : (
-                      history.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      history.map((item) => (
+                        <div key={item.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
                           <span className="font-bold text-slate-700 text-lg tracking-wider">{item.question}</span>
                           <div className="flex items-center gap-2">
                             <span className={cn(
@@ -539,31 +512,6 @@ function App() {
   );
 }
 
-// Subcomponents for cleaner code
-const StatBox = ({ label, value, isStreak }: { label: string, value: number, isStreak?: boolean }) => (
-  <div className="bg-white/20 rounded-2xl p-2 text-center backdrop-blur-sm">
-    <div className="text-xs font-bold text-violet-100 uppercase tracking-wider mb-1">{label}</div>
-    <motion.div
-      key={value} // Re-animate on change
-      initial={{ scale: 1.5, color: isStreak ? '#fcd34d' : '#fff' }}
-      animate={{ scale: 1, color: '#fff' }}
-      className="text-2xl font-black"
-    >
-      {value}
-    </motion.div>
-  </div>
-);
 
-const SettingInput = ({ label, value, onChange }: { label: string, value: number, onChange: (n: number) => void }) => (
-  <div className="bg-slate-50 p-4 rounded-xl flex justify-between items-center">
-    <label className="font-bold text-slate-600">{label}</label>
-    <input
-      type="number"
-      value={value}
-      onChange={e => onChange(parseInt(e.target.value) || 0)}
-      className="w-20 text-center font-bold text-lg bg-white border-2 border-slate-200 rounded-lg py-1 focus:border-violet-400 outline-none text-violet-600"
-    />
-  </div>
-);
 
 export default App;
